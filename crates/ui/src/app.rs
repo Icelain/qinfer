@@ -98,6 +98,41 @@ impl TemplateApp {
             ui.label(text);
         });
     }
+
+    fn settings_ui(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Settings");
+        ui.add_space(8.0);
+        ui.label("Model");
+        ui.text_edit_singleline(&mut self.model);
+        ui.add_space(8.0);
+        ui.label("Sampling");
+        ui.add(egui::Slider::new(&mut self.temperature, 0.0..=2.0).text("temperature"));
+        ui.add(egui::Slider::new(&mut self.top_p, 0.0..=1.0).text("top_p"));
+        ui.add_space(8.0);
+        ui.label("Penalties");
+        ui.add(
+            egui::Slider::new(&mut self.presence_penalty, -2.0..=2.0).text("presence"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.frequency_penalty, -2.0..=2.0).text("frequency"),
+        );
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            ui.label("Max tokens");
+            ui.add(egui::DragValue::new(&mut self.max_tokens).range(1..=8192));
+        });
+        ui.checkbox(&mut self.stream, "Stream responses");
+        ui.add_space(8.0);
+        egui::CollapsingHeader::new("System prompt")
+            .default_open(true)
+            .show(ui, |ui| {
+                ui.add(
+                    egui::TextEdit::multiline(&mut self.system_prompt)
+                        .desired_rows(6)
+                        .hint_text("You are a helpful assistant..."),
+                );
+            });
+    }
 }
 
 impl eframe::App for TemplateApp {
@@ -108,6 +143,8 @@ impl eframe::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let is_narrow = ctx.available_rect().width() < 900.0;
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
@@ -118,54 +155,27 @@ impl eframe::App for TemplateApp {
             ui.add_space(4.0);
         });
 
-        egui::SidePanel::right("settings_panel")
-            .resizable(true)
-            .default_width(260.0)
-            .show(ctx, |ui| {
-                ui.heading("Settings");
-                ui.add_space(8.0);
-                ui.label("Model");
-                ui.text_edit_singleline(&mut self.model);
-                ui.add_space(8.0);
-                ui.label("Sampling");
-                ui.add(egui::Slider::new(&mut self.temperature, 0.0..=2.0).text("temperature"));
-                ui.add(egui::Slider::new(&mut self.top_p, 0.0..=1.0).text("top_p"));
-                ui.add_space(8.0);
-                ui.label("Penalties");
-                ui.add(
-                    egui::Slider::new(&mut self.presence_penalty, -2.0..=2.0)
-                        .text("presence"),
-                );
-                ui.add(
-                    egui::Slider::new(&mut self.frequency_penalty, -2.0..=2.0)
-                        .text("frequency"),
-                );
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    ui.label("Max tokens");
-                    ui.add(egui::DragValue::new(&mut self.max_tokens).range(1..=8192));
+        if !is_narrow {
+            egui::SidePanel::right("settings_panel")
+                .resizable(true)
+                .default_width(280.0)
+                .min_width(220.0)
+                .max_width(360.0)
+                .show(ctx, |ui| {
+                    self.settings_ui(ui);
                 });
-                ui.checkbox(&mut self.stream, "Stream responses");
-                ui.add_space(8.0);
-                egui::CollapsingHeader::new("System prompt")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.system_prompt)
-                                .desired_rows(6)
-                                .hint_text("You are a helpful assistant..."),
-                        );
-                    });
-            });
+        }
 
         egui::TopBottomPanel::bottom("composer_panel")
             .resizable(false)
             .show(ctx, |ui| {
                 ui.add_space(6.0);
                 ui.label("Message");
+                let desired_rows = if is_narrow { 2 } else { 3 };
                 ui.add(
                     egui::TextEdit::multiline(&mut self.input)
-                        .desired_rows(3)
+                        .desired_rows(desired_rows)
+                        .desired_width(ui.available_width())
                         .hint_text("Ask a question, paste a prompt, or describe a task..."),
                 );
                 ui.add_space(6.0);
@@ -202,6 +212,14 @@ impl eframe::App for TemplateApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_space(8.0);
+            if is_narrow {
+                egui::CollapsingHeader::new("Settings")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        self.settings_ui(ui);
+                    });
+                ui.add_space(8.0);
+            }
             ui.heading("Conversation");
             ui.add_space(6.0);
 
